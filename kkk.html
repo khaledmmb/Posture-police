@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Smart Posture Monitor</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+    .main-container {
+      display: flex;
+      width: 1200px;
+      max-width: 100%;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .controls-panel {
+      flex: 0 0 400px;
+      background: #f0f0f0;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      height: fit-content;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .control-group {
+      break-inside: avoid;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10px;
+    }
+    .control-group:nth-last-child(-n+2) {
+      border-bottom: none;
+    }
+    .controls-panel label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    .controls-panel small {
+      color: #666;
+      font-size: 11px;
+      display: block;
+      margin-top: 3px;
+    }
+    .controls-panel input[type=range] {
+      width: 100%;
+    }
+    .controls-panel select, .controls-panel button {
+      width: 100%;
+      padding: 6px;
+      margin-top: 5px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 13px;
+    }
+    .controls-panel button {
+      background: #2196F3;
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.2s;
+    }
+    .controls-panel button:hover {
+      background: #0b7ad1;
+    }
+    #pauseBtn {
+      background: #4CAF50;
+    }
+    #pauseBtn:hover {
+      background: #3d8b40;
+    }
+    #calibrateHeadBtn, #calibrateShoulderBtn {
+      background: #ff9800;
+    }
+    #calibrateHeadBtn:hover, #calibrateShoulderBtn:hover {
+      background: #e68900;
+    }
+    .display-panel {
+      flex: 1 1 640px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .canvas-container {
+      position: relative;
+      width: 640px;
+      height: 480px;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      background: #000;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    #video {
+      display: none;
+    }
+    #exercisePanel {
+      width: 100%;
+      margin-top: 20px;
+      padding: 15px;
+      background: #e7f3ff;
+      border-radius: 10px;
+      text-align: left;
+      font-size: 16px;
+      border-left: 5px solid #2196F3;
+      display: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .exercise-img {
+      width: 100px;
+      height: auto;
+      border-radius: 8px;
+      margin-right: 15px;
+    }
+    .exercise-content {
+      display: flex;
+      align-items: center;
+    }
+    .exercise-desc {
+      flex: 1;
+    }
+    .exercise-checkbox {
+      margin-top: 8px;
+    }
+    .stats-panel {
+      width: 100%;
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 10px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      font-size: 15px;
+    }
+    .stats-panel h3 {
+      margin-top: 0;
+      color: #333;
+    }
+    .stats-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      border-bottom: 1px dotted #ccc;
+      padding-bottom: 4px;
+    }
+    .stats-value {
+      font-weight: bold;
+    }
+    .doctor-advice {
+      background: #ffebee;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      border-left: 4px solid #f44336;
+    }
+    #resetSessionBtn {
+      background: #9e9e9e;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+      width: 100%;
+    }
+    #resetSessionBtn:hover {
+      background: #757575;
+    }
+    .error-box {
+      background: #ffeeee;
+      padding: 10px;
+      border-radius: 5px;
+      margin-top: 10px;
+      text-align: center;
+    }
+    #startBtn {
+      background: #4CAF50;
+      color: white;
+      font-weight: bold;
+      padding: 12px 20px;
+      font-size: 18px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-bottom: 20px;
+      width: 200px;
+    }
+    #startBtn:hover {
+      background: #3d8b40;
+    }
+  </style>
+</head>
+<body>
+  <h2>Smart Posture Monitor</h2>
+  <button id="startBtn">📷 Start Camera</button>
+
+  <div class="main-container">
+    <!-- LEFT COLUMN – CONTROLS (2‑column grid) -->
+    <div class="controls-panel">
+      <!-- Head offset control -->
+      <div class="control-group">
+        <label>Head Forward Tolerance: <span id="headTolVal">0.05</span></label>
+        <input type="range" id="headTolSlider" min="0.01" max="0.15" step="0.01" value="0.05">
+        <small>Higher = more lenient</small>
+        <button id="calibrateHeadBtn">📏 Calibrate Good Head</button>
+      </div>
+      <!-- Shoulder offset control (now based on shoulder midpoint x) -->
+      <div class="control-group">
+        <label>Shoulder Forward Tolerance: <span id="shoulderTolVal">0.05</span></label>
+        <input type="range" id="shoulderTolSlider" min="0.01" max="0.15" step="0.01" value="0.05">
+        <small>Higher = more lenient</small>
+        <button id="calibrateShoulderBtn">📏 Calibrate Good Shoulders</button>
+      </div>
+      <div class="control-group">
+        <label>Grace Period: <span id="timerVal">3</span>s</label>
+        <input type="range" id="timerSlider" min="1" max="10" value="3">
+        <small>Time before alert</small>
+      </div>
+      <div class="control-group">
+        <label>Notif. Cooldown: <span id="cooldownVal">10</span>s</label>
+        <input type="range" id="cooldownSlider" min="5" max="60" value="10">
+      </div>
+      <div class="control-group">
+        <label>Sound</label>
+        <select id="soundSelect">
+          <option value="beep" selected>Beep</option>
+          <option value="chime">Chime</option>
+          <option value="none">Silent</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Focus Mode</label>
+        <button id="pauseBtn" style="background:#4CAF50; color:white;">⏸ Pause</button>
+      </div>
+      <div class="control-group">
+        <label>Slouch events before exercise: <span id="slouchThresholdVal">5</span></label>
+        <input type="range" id="slouchThresholdSlider" min="1" max="10" value="5">
+        <small>Applies to both head & shoulders</small>
+      </div>
+      <div class="control-group">
+        <label>Exercise cooldown: <span id="exerciseCooldownVal">30</span> min</label>
+        <input type="range" id="exerciseCooldownSlider" min="5" max="120" value="30">
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN – CANVAS + EXERCISE PANEL + STATS -->
+    <div class="display-panel">
+      <div class="canvas-container">
+        <video id="video" width="640" height="480" autoplay muted></video>
+        <canvas id="canvas" width="640" height="480"></canvas>
+      </div>
+      <div id="cameraError" class="error-box" style="display:none;"></div>
+      <div id="exercisePanel"></div>
+
+      <!-- Statistics Panel -->
+      <div class="stats-panel">
+        <h3>📊 Session Statistics</h3>
+        <div class="stats-row">
+          <span>Session duration:</span>
+          <span class="stats-value" id="sessionDuration">0:00</span>
+        </div>
+        <div class="stats-row">
+          <span>Head forward events:</span>
+          <span class="stats-value" id="headSlouchStat">0</span>
+        </div>
+        <div class="stats-row">
+          <span>Shoulder slouch events:</span>
+          <span class="stats-value" id="shoulderSlouchStat">0</span>
+        </div>
+        <div class="stats-row">
+          <span>Total slouches:</span>
+          <span class="stats-value" id="totalSlouchStat">0</span>
+        </div>
+        <div class="stats-row">
+          <span>Score:</span>
+          <span class="stats-value" id="scoreStat">100</span>
+        </div>
+        <div class="stats-row">
+          <span>Grade:</span>
+          <span class="stats-value" id="gradeStat">Excellent</span>
+        </div>
+        <div id="doctorAdvice" class="doctor-advice" style="display:none;">
+          ⚠️ Your score is very low. Consider consulting a doctor or physical therapist.
+        </div>
+        <button id="resetSessionBtn">🔄 Reset Session</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const canvasElement = document.getElementById('canvas');
+    const canvasCtx = canvasElement.getContext('2d');
+    const cameraErrorDiv = document.getElementById('cameraError');
+    const startBtn = document.getElementById('startBtn');
+
+    // UI Elements
+    const headTolSlider = document.getElementById('headTolSlider');
+    const shoulderTolSlider = document.getElementById('shoulderTolSlider');
+    const timerSlider = document.getElementById('timerSlider');
+    const cooldownSlider = document.getElementById('cooldownSlider');
+    const soundSelect = document.getElementById('soundSelect');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const slouchThresholdSlider = document.getElementById('slouchThresholdSlider');
+    const exerciseCooldownSlider = document.getElementById('exerciseCooldownSlider');
+    const exercisePanel = document.getElementById('exercisePanel');
+    const calibrateHeadBtn = document.getElementById('calibrateHeadBtn');
+    const calibrateShoulderBtn = document.getElementById('calibrateShoulderBtn');
+
+    // Display spans
+    const headTolDisp = document.getElementById('headTolVal');
+    const shoulderTolDisp = document.getElementById('shoulderTolVal');
+    const timerDisp = document.getElementById('timerVal');
+    const cooldownDisp = document.getElementById('cooldownVal');
+    const slouchThresholdDisp = document.getElementById('slouchThresholdVal');
+    const exerciseCooldownDisp = document.getElementById('exerciseCooldownVal');
+
+    // Stats elements
+    const sessionDurationSpan = document.getElementById('sessionDuration');
+    const headSlouchStat = document.getElementById('headSlouchStat');
+    const shoulderSlouchStat = document.getElementById('shoulderSlouchStat');
+    const totalSlouchStat = document.getElementById('totalSlouchStat');
+    const scoreStat = document.getElementById('scoreStat');
+    const gradeStat = document.getElementById('gradeStat');
+    const doctorAdviceDiv = document.getElementById('doctorAdvice');
+    const resetSessionBtn = document.getElementById('resetSessionBtn');
+
+    // State Variables
+    let badPostureStartTime = null; 
+    let lastNotificationTime = 0;
+    // Calibrated values:
+    // Head offset = nose.x - shoulderMidpoint.x
+    let baselineHeadOffset = null;
+    // Shoulder baseline = shoulderMidpoint.x (the x-coordinate of the midpoint)
+    let baselineShoulderX = null;
+    let poseReady = false;
+    let lastLandmarks = null;
+    let isPaused = false;
+    let notificationCooldown = 10000; // ms
+    let currentSound = 'beep';
+    let headSlouchEventCount = 0;
+    let shoulderSlouchEventCount = 0;
+    let exerciseCooldownUntil = 0;
+    let slouchThreshold = 5;
+    let exerciseCooldownMin = 30;
+    let camera = null;
+    let pose = null;
+
+    // Session tracking
+    let sessionStartTime = Date.now();
+
+    // Exercise definitions
+    const headExercise = {
+      name: "Chin Tucks",
+      emoji: "🧘",
+      shortDesc: "Pull your head straight back, like making a double chin. Hold 5s.",
+      imageUrl: "https://mewing.coach/blog/wp-content/uploads/2022/11/chin-tucking-steps.png"
+    };
+    const shoulderExercise = {
+      name: "Scapular Squeezes",
+      emoji: "💪",
+      shortDesc: "Squeeze your shoulder blades together and down. Hold 5s.",
+      imageUrl: "https://www.mayoclinic.org/-/media/kcms/gbs/patient-consumer/images/2013/11/19/10/06/lb00001_d---shoulder-blade-squeeze.jpg"
+    };
+
+    // Update labels when sliders move
+    headTolSlider.oninput = () => headTolDisp.innerText = headTolSlider.value;
+    shoulderTolSlider.oninput = () => shoulderTolDisp.innerText = shoulderTolSlider.value;
+    timerSlider.oninput = () => timerDisp.innerText = timerSlider.value;
+    cooldownSlider.oninput = () => {
+      cooldownDisp.innerText = cooldownSlider.value;
+      notificationCooldown = parseInt(cooldownSlider.value) * 1000;
+    };
+    soundSelect.onchange = () => { currentSound = soundSelect.value; };
+    slouchThresholdSlider.oninput = () => {
+      slouchThresholdDisp.innerText = slouchThresholdSlider.value;
+      slouchThreshold = parseInt(slouchThresholdSlider.value);
+    };
+    exerciseCooldownSlider.oninput = () => {
+      exerciseCooldownDisp.innerText = exerciseCooldownSlider.value;
+      exerciseCooldownMin = parseInt(exerciseCooldownSlider.value);
+    };
+
+    // Pause toggle
+    pauseBtn.addEventListener('click', () => {
+      isPaused = !isPaused;
+      pauseBtn.textContent = isPaused ? '▶ Resume' : '⏸ Pause';
+      pauseBtn.style.background = isPaused ? '#f44336' : '#4CAF50';
+      if (isPaused) badPostureStartTime = null;
+    });
+
+    // Notification permission
+    if (Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function resumeAudioContext() {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+    [headTolSlider, shoulderTolSlider, timerSlider, cooldownSlider, soundSelect, canvasElement].forEach(el =>
+      el.addEventListener('input', resumeAudioContext)
+    );
+
+    function playAlarm() {
+      if (currentSound === 'none') return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      if (currentSound === 'beep') {
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } else {
+        osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+        osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      }
+    }
+
+    // Show exercise tip for a specific body part
+    function showExerciseTip(part) {
+      const now = Date.now();
+      if (now < exerciseCooldownUntil) return;
+
+      let ex;
+      if (part === 'head') {
+        ex = headExercise;
+        headSlouchEventCount = 0;
+      } else {
+        ex = shoulderExercise;
+        shoulderSlouchEventCount = 0;
+      }
+
+      const panelContent = document.createElement('div');
+      panelContent.className = 'exercise-content';
+      panelContent.innerHTML = `
+        <img src="${ex.imageUrl}" alt="${ex.name}" class="exercise-img" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+        <span style="display:none; font-size:40px;">${ex.emoji}</span>
+        <div class="exercise-desc">
+          <strong>${ex.emoji} ${ex.name}</strong><br>
+          <span>${ex.shortDesc}</span><br>
+          <label class="exercise-checkbox"><input type="checkbox" id="exerciseDoneCheckbox"> ✓ I did this exercise</label>
+        </div>
+      `;
+      exercisePanel.innerHTML = '';
+      exercisePanel.appendChild(panelContent);
+      exercisePanel.style.display = 'block';
+
+      const hideTimeout = setTimeout(() => {
+        exercisePanel.style.display = 'none';
+      }, 8000);
+
+      const checkbox = document.getElementById('exerciseDoneCheckbox');
+      checkbox.addEventListener('change', (e) => {
+        if (e.target.checked) {
+          exerciseCooldownUntil = Date.now() + exerciseCooldownMin * 60 * 1000;
+          exercisePanel.style.display = 'none';
+          clearTimeout(hideTimeout);
+        }
+      });
+    }
+
+    // Update statistics display
+    function updateStats() {
+      const total = headSlouchEventCount + shoulderSlouchEventCount;
+      const score = Math.max(0, 100 - total * 2);
+      let grade = '';
+      if (score >= 90) grade = 'Excellent';
+      else if (score >= 75) grade = 'Good';
+      else if (score >= 50) grade = 'Fair';
+      else if (score >= 25) grade = 'Poor';
+      else grade = 'Very Poor';
+
+      const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      sessionDurationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      headSlouchStat.textContent = headSlouchEventCount;
+      shoulderSlouchStat.textContent = shoulderSlouchEventCount;
+      totalSlouchStat.textContent = total;
+      scoreStat.textContent = score;
+      gradeStat.textContent = grade;
+
+      if (grade === 'Very Poor') {
+        doctorAdviceDiv.style.display = 'block';
+      } else {
+        doctorAdviceDiv.style.display = 'none';
+      }
+    }
+
+    // Reset session
+    function resetSession() {
+      headSlouchEventCount = 0;
+      shoulderSlouchEventCount = 0;
+      exerciseCooldownUntil = 0;
+      badPostureStartTime = null;
+      lastNotificationTime = 0;
+      sessionStartTime = Date.now();
+      updateStats();
+      exercisePanel.style.display = 'none';
+    }
+    resetSessionBtn.addEventListener('click', resetSession);
+
+    // Initialize Pose
+    pose = new Pose({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+    });
+
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    pose.onResults(onResults);
+
+    // Calibration functions
+    calibrateHeadBtn.addEventListener('click', () => {
+      if (!poseReady || !lastLandmarks) {
+        alert('Pose not detected yet. Please wait and ensure your upper body is clearly visible.');
+        return;
+      }
+      const nose = lastLandmarks[0];
+      const leftShoulder = lastLandmarks[11];
+      const rightShoulder = lastLandmarks[12];
+      const shoulderMidpoint = {
+          x: (leftShoulder.x + rightShoulder.x) / 2,
+          y: (leftShoulder.y + rightShoulder.y) / 2
+      };
+      baselineHeadOffset = nose.x - shoulderMidpoint.x;
+      alert(`Head calibrated! Offset = ${baselineHeadOffset.toFixed(3)}`);
+    });
+
+    calibrateShoulderBtn.addEventListener('click', () => {
+      if (!poseReady || !lastLandmarks) {
+        alert('Pose not detected yet. Please wait and ensure your upper body is clearly visible.');
+        return;
+      }
+      const leftShoulder = lastLandmarks[11];
+      const rightShoulder = lastLandmarks[12];
+      const shoulderMidpoint = {
+          x: (leftShoulder.x + rightShoulder.x) / 2,
+          y: (leftShoulder.y + rightShoulder.y) / 2
+      };
+      baselineShoulderX = shoulderMidpoint.x;
+      alert(`Shoulders calibrated! Baseline X = ${baselineShoulderX.toFixed(3)}`);
+    });
+
+    // Camera initialisation
+    function initCamera() {
+      cameraErrorDiv.style.display = 'none';
+      cameraErrorDiv.innerHTML = '';
+
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          videoElement.srcObject = stream;
+          videoElement.onloadedmetadata = () => {
+            videoElement.play();
+
+            camera = new Camera(videoElement, {
+              onFrame: async () => {
+                await pose.se
